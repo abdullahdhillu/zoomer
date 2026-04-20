@@ -1,4 +1,4 @@
-# Meet AI
+# Zoomer AI
 
 AI-powered video call application with real-time agents, meeting summaries, and post-call features.
 
@@ -53,6 +53,7 @@ npm run start        # Start production server
 ```
 
 > Note: For `dev:webhook` to work, you need to add your ngrok static domain to the script in `package.json`:
+>
 > ```json
 > "dev:webhook": "ngrok http --url=[YOUR_NGROK_STATIC_DOMAIN] 3000"
 > ```
