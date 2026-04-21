@@ -58,7 +58,7 @@ export const meetingsProcessing = inngest.createFunction(
         .then((users) =>
           users.map((user) => ({
             ...user,
-          }))
+          })),
         );
 
       const agentSpeakers = await db
@@ -68,14 +68,14 @@ export const meetingsProcessing = inngest.createFunction(
         .then((agents) =>
           agents.map((agent) => ({
             ...agent,
-          }))
+          })),
         );
 
       const speakers = [...userSpeakers, ...agentSpeakers];
 
       return transcript.map((item) => {
         const speaker = speakers.find(
-          (speaker) => speaker.id === item.speaker_id
+          (speaker) => speaker.id === item.speaker_id,
         );
 
         if (!speaker) {
@@ -96,20 +96,42 @@ export const meetingsProcessing = inngest.createFunction(
       });
     });
 
-    const { output } = await summarizer.run(
-      "Summarize the following transcript: " +
-        JSON.stringify(transcriptWithSpeakers)
-    );
+    const summary = await step.run("summarize-transcript", async () => {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: `You are an expert summarizer. You write readable, concise, structured markdown summaries.`,
+            },
+            {
+              role: "user",
+              content:
+                "Summarize the following transcript:\n" +
+                JSON.stringify(transcriptWithSpeakers),
+            },
+          ],
+        }),
+      });
+
+      const data = await res.json();
+      return data.choices[0].message.content;
+    });
 
     await step.run("save-summary", async () => {
       await db
         .update(meetings)
         .set({
-          summary: (output[0] as TextMessage).content as string,
+          summary,
           status: "completed",
         })
-        .where(eq(meetings.id, event.data.meetingId))
-    })
+        .where(eq(meetings.id, event.data.meetingId));
+    });
   },
 );
-
